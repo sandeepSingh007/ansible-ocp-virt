@@ -1,18 +1,18 @@
 - hosts: all  # Target all hosts in your inventory
   tasks:
-  - name: Create project
-    redhat.openshift.k8s:
-      state: present
-      definition:
-        apiVersion: project.openshift.io/v1
-        kind: Project
-        metadata:
-          name: workloads
+  #- name: Create project
+   # redhat.openshift.k8s:
+    #  state: present
+     # definition:
+      #  apiVersion: project.openshift.io/v1
+       # kind: Project
+        #metadata:
+         # name: wikilabs-virtualmachines
   - name: Create fedora virtual machine
     redhat.openshift_virtualization.kubevirt_vm:
       state: present
       name: fedora-httpd
-      namespace: workloads
+      namespace: wikilabs-virtualmachines
       labels:
         app: httpd
       instancetype:
@@ -45,7 +45,7 @@
       api_version: kubevirt.io/v1
       kind: VirtualMachineInstance
       name: fedora-httpd
-      namespace: workloads
+      namespace: wikilabs-virtualmachines
     register: vmi
     retries: 60
     delay: 10
