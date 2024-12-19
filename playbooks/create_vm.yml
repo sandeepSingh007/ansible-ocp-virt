@@ -1,4 +1,4 @@
-- hosts: api.ocpv4.wikiocpvdemoenv.asia  # Target all hosts in your inventory
+- hosts: all # Target all hosts in your inventory
   tasks:
   #- name: Create project
    # redhat.openshift.k8s:
