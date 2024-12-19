@@ -1,4 +1,4 @@
-- hosts: all  # Target all hosts in your inventory
+- hosts: https://api.ocpv4.wikiocpvdemoenv.asia:6443  # Target all hosts in your inventory
   tasks:
   #- name: Create project
    # redhat.openshift.k8s:
@@ -12,7 +12,7 @@
     redhat.openshift_virtualization.kubevirt_vm:
       state: present
       name: fedora-httpd
-      namespace: wikilabs-virtualmachines
+      namespace: aap-vm-auto-provision-test
       labels:
         app: httpd
       instancetype:
@@ -45,7 +45,7 @@
       api_version: kubevirt.io/v1
       kind: VirtualMachineInstance
       name: fedora-httpd
-      namespace: wikilabs-virtualmachines
+      namespace: aap-vm-auto-provision-test
     register: vmi
     retries: 60
     delay: 10
