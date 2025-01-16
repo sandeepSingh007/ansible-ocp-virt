@@ -10,7 +10,6 @@ fields:
 required:
   - kube_api
   - kube_token
----
 env:
   K8S_AUTH_HOST: "{{ kube_api }}"
   K8S_AUTH_API_KEY: "{{ kube_token }}"
