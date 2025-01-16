@@ -1,4 +1,3 @@
----
 fields:
   - type: string
     id: kube_api
