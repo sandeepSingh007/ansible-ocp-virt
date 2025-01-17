@@ -71,15 +71,7 @@
                               {
                                 "name": "cloudinitdisk",
                                 "cloudInitNoCloud": {
-                                  "userData": |-
-                                    #cloud-config
-                                    users:
-                                      - name: root
-                                        passwd: redhat@123
-                                        lock_passwd: false
-                                        ssh_pwauth: true
-                                    chpasswd:
-                                      expire: false
+                                  "userData": "#cloud-config\nusers:\n  - name: root\n    passwd: $6$rounds=656000$JH6HpHsbjtOhXlzOz2A5qV96rg8ObWiWDYTXH2Z1DWBLbNC7Lu2zW3P5Z26EjsLP/rrILxlXxwZoa9NcDpdZx/\n    lock_passwd: false\n    ssh_pwauth: true\nchpasswd:\n  expire: false"
                                 }
                               }
                             ]
