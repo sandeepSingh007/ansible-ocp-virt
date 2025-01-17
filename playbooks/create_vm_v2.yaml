@@ -106,9 +106,9 @@
       
     - name: Print the IP address of the VM
       debug:
-        #msg: "The IP address of the virtual machine {{ vm_name }} is: {{ vmi.resources[0].status.interfaces[0].ipAddress }}"
-        msg: >
-          The IP addresses of the virtual machine {{ vm_name }} are:
-          {% for interface in vmi.resources[0].status.interfaces %}
-          - {{ interface.name }}: {{ interface.ipAddress | default('No IP assigned') }}
-          {% endfor %}
+        msg: "The IP address of the virtual machine {{ vm_name }} is: {{ vmi.resources[0].status.interfaces[0].ipAddress }}"
+        #msg: >
+         # The IP addresses of the virtual machine {{ vm_name }} are:
+          #{% for interface in vmi.resources[0].status.interfaces %}
+          #- {{ interface.name }}: {{ interface.ipAddress | default('No IP assigned') }}
+          #{% endfor %}
