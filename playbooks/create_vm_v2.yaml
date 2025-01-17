@@ -136,11 +136,9 @@
     - name: Print the IP addresses of all VM interfaces
       debug:
         msg: >
-          The IP of the default interface is: {{
-            (vm_interfaces | selectattr('name', 'equalto', 'default') | map(attribute='ip') | list | first | default('No IP assigned'))
-          }}
-          The IP of the bridge-br1 interface is: {{
-            (vm_interfaces | selectattr('name', 'equalto', 'bridge-br1') | map(attribute='ip') | list | first | default('No IP assigned'))
-          }}
+          The IP addresses of the virtual machine {{ vm_name }} are:
+          {% for interface in (vmi.resources[0].status.interfaces | default([])) %}
+          - {{ interface.name | default('Unknown') }}: {{ interface.ipAddress | default('No IP assigned') }}
+          {% endfor %}
 
    
