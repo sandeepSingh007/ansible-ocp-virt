@@ -1,4 +1,4 @@
-- hosts: localhost # Playbook run against the local host, as i am using Kubernetes virt module, no need to change if Using AAP##
+- hosts: localhost
   tasks:
     - name: Ensure namespace exists
       kubernetes.core.k8s:
@@ -9,7 +9,7 @@
           metadata:
             name: aap-vm-auto-provision-test
 
-    - name: Create fedora virtual machine
+    - name: Create fedora virtual machine with two network interfaces
       redhat.openshift_virtualization.kubevirt_vm:
         state: present
         name: fedora-httpd
@@ -24,11 +24,24 @@
           domain:
             devices:
               interfaces:
+                # Default pod network interface
                 - name: default
                   masquerade: {}
+
+                # Second network interface using NetworkAttachmentDefinition
+                - name: bridge-br1
+                  bridge: {}
+
           networks:
+            # Pod network
             - name: default
               pod: {}
+
+            # Second network for bridge-br1 using NetworkAttachmentDefinition
+            - name: bridge-br1
+              multus:
+                networkName: bridge-br1
+
           volumes:
             - containerDisk:
                 image: quay.io/containerdisks/fedora:latest
@@ -46,7 +59,7 @@
                     expire: false
                 name: cloudinit
 
-    - name: Wait for virtual machine IP to be populated
+    - name: Wait for virtual machine to be ready and retrieve IP address
       kubernetes.core.k8s_info:
         api_version: kubevirt.io/v1
         kind: VirtualMachineInstance
@@ -55,4 +68,9 @@
       register: vmi
       retries: 60
       delay: 10
-      until: (vmi.resources[0].status.interfaces[0]['ipAddress'] | default('')) | length > 0
+      until: (vmi.resources[0].status.interfaces | length > 0) and 
+             (vmi.resources[0].status.interfaces[0]['ipAddress'] | default('')) | length > 0
+
+    - name: Print IP address of the VM
+      debug:
+        msg: "The IP address of the virtual machine is: {{ vmi.resources[0].status.interfaces[0]['ipAddress'] }}"
