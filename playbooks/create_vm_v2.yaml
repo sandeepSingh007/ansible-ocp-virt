@@ -1,4 +1,4 @@
-- hosts: localhost
+- hosts: localhost # Playbook run against the local host, as i am using Kubernetes virt module, no need to change if Using AAP##
   tasks:
     - name: Ensure namespace exists
       kubernetes.core.k8s:
