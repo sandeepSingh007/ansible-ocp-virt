@@ -6,9 +6,34 @@
     source_ref_namespace: "openshift-virtualization-os-images"  # Namespace of the template
     instancetype_name: "u1.medium"  # Instance type
     preference_name: "rhel.9"  # Preference type
+    bridge_network_name: "bridge-br1"  # Name of the bridge network attachment definition
     user_password: "pu5m-13en-ep7h"  # Cloud-init password
     user_name: "rhel"  # Cloud-init user
   tasks:
+    - name: Check if the target namespace exists
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+        name: "{{ namespace }}"
+      register: ns_info
+      failed_when: ns_info.resources | length == 0
+      ignore_errors: true
+    
+    - name: Create namespace if it does not exist
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ namespace }}"
+      when: ns_info.resources | length == 0
+
+    - name: Validate namespace creation
+      fail:
+        msg: "Namespace {{ namespace }} could not be created and does not exist."
+      when: ns_info.resources | length == 0 and (task_result.failed or task_result | default(false))
+  
     - name: Create VM using the provided template
       kubernetes.core.k8s:
         state: present
@@ -44,9 +69,14 @@
                     interfaces:
                       - masquerade: {}
                         name: default
+                      - bridge: {}
+                        name: bridge-br1
                 networks:
                   - name: default
                     pod: {}
+                  - name: bridge-br1
+                    multus:
+                      networkName: "{{ bridge_network_name }}"
                 subdomain: headless
                 volumes:
                   - dataVolume:
@@ -68,8 +98,8 @@
         name: "{{ vm_name }}"
         namespace: "{{ namespace }}"
       register: vmi
-      retries: 60
-      delay: 10
+      retries: 100
+      delay: 50
       until: >
         (vmi.resources[0].status.phase == "Running") and
         (vmi.resources[0].status.interfaces | default([]) | length > 0)
