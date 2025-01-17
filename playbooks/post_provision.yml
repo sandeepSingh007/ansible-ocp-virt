@@ -1,4 +1,4 @@
-- hosts: namespace_app_vm_auto_provision_test
+- hosts: namespace_aap_vm_auto_provision_test
   become: true  # Run tasks with root privileges
   tasks:
     - name: Install httpd package
