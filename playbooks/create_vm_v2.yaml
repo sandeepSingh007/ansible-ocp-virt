@@ -9,7 +9,7 @@
           apiVersion: v1
           kind: Namespace
           metadata:
-            name: aap-vm-auto-provision-test
+            name: aap-vm-auto-provision-test ## This is namespace in openshift, In my case already provisioned in Openshift ###
 
     - name: Create fedora virtual machine with two network interfaces
       redhat.openshift_virtualization.kubevirt_vm:
