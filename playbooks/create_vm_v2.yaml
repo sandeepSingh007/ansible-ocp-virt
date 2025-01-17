@@ -103,12 +103,19 @@
       delay: 10
      # until: (vmi.resources[0].status.interfaces[0] ['ipAddress'] | default('')) | length > 0
       #until: (vmi.resources[0].status.phase == "Running")
+      #until: >
+        #(vmi.resources | length > 0) and
+        #(vmi.resources[0].status.phase == "Running") and
+        #(vmi.resources[0].status.interfaces | default([]) | length > 0) and
+        #(vmi.resources[0].status.interfaces | selectattr('ipAddress', 'defined') | list | length > 0)
       until: >
         (vmi.resources | length > 0) and
         (vmi.resources[0].status.phase == "Running") and
         (vmi.resources[0].status.interfaces | default([]) | length > 0) and
-        (vmi.resources[0].status.interfaces | selectattr('ipAddress', 'defined') | list | length > 0)
-
+        (
+          vmi.resources[0].status.interfaces | map(attribute='ipAddress') | select('defined') | list | length ==
+          (vmi.resources[0].status.interfaces | length)
+        )
         
     #- name: Print the IP address of the VM
       #debug:
