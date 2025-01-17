@@ -2,7 +2,7 @@
 - hosts: localhost
   vars:
     vm_name: "{{ vm_name }}"  # VM name
-    namespace: "aap-vm-auto-provision-test"  # Target namespace
+    vm_namespace: "aap-vm-auto-provision-test"  # Target namespace
     source_ref_name: "rhel9"  # Template or image source name
     source_ref_namespace: "openshift-virtualization-os-images"  # Namespace of the template
     instancetype_name: "u1.medium"  # Instance type
@@ -15,7 +15,7 @@
       kubernetes.core.k8s_info:
         api_version: v1
         kind: Namespace
-        name: "{{ namespace }}"
+        name: "{{ vm_namespace }}"
       register: ns_info
       failed_when: ns_info.resources | length == 0
       ignore_errors: true
@@ -27,12 +27,12 @@
           apiVersion: v1
           kind: Namespace
           metadata:
-            name: "{{ namespace }}"
+            name: "{{ vm_namespace }}"
       when: ns_info.resources | length == 0
 
     - name: Validate namespace creation
       fail:
-        msg: "Namespace {{ namespace }} could not be created and does not exist."
+        msg: "Namespace {{ vm_namespace }} could not be created and does not exist."
       when: ns_info.resources | length == 0 and (task_result.failed or task_result | default(false))
   
     - name: Create VM using the provided template
@@ -43,7 +43,7 @@
           kind: VirtualMachine
           metadata:
             name: "{{ vm_name }}"
-            namespace: "{{ namespace }}"
+            namespace: "{{ vm_namespace }}"
           spec:
             dataVolumeTemplates:
               - metadata:
@@ -97,13 +97,11 @@
         api_version: kubevirt.io/v1
         kind: VirtualMachineInstance
         name: "{{ vm_name }}"
-        namespace: "{{ namespace }}"
+        namespace: "{{ vm_namespace }}"
       register: vmi
-      retries: 100
-      delay: 50
-      until: >
-        (vmi.resources[0].status.phase == "Running") and
-        (vmi.resources[0].status.interfaces | default([]) | length > 0)
+      retries: 60
+      delay: 10
+      until: (vmi.resources[0].status.interfaces[0] ['ipAddress'] | default('')) | length > 0
 
     - name: Print the IP address of the VM
       debug:
