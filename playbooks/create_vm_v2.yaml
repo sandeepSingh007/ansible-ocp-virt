@@ -27,8 +27,8 @@
                   masquerade: {}
 
                 # Second network interface using NetworkAttachmentDefinition
-                - name: bridge-br1
-                  bridge: {}
+         #       - name: bridge-br1
+          #        bridge: {}
 
           networks:
             # Pod network
@@ -36,9 +36,9 @@
               pod: {}
 
             # Second network for bridge-br1 using NetworkAttachmentDefinition
-            - name: bridge-br1
-              multus:
-                networkName: bridge-br1
+           # - name: bridge-br1
+            #  multus:
+             #   networkName: bridge-br1
 
           volumes:
             - name: containerdisk
