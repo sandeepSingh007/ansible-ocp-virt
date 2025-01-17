@@ -2,3 +2,4 @@ plugin: redhat.openshift_virtualization.kubevirt
 connections:
   - use_service: False
     validate_certs: False
+strict: True
