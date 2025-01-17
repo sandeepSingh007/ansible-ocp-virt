@@ -1,14 +1,15 @@
+### Playbook to Create VM by Using Template from Catalog. ####
 - hosts: localhost
   vars:
-    vm_name: "rhel-9-teal-grouse-34"  # VM name
+    vm_name: "{{ vm_name }}"  # VM name
     namespace: "aap-vm-auto-provision-test"  # Target namespace
     source_ref_name: "rhel9"  # Template or image source name
     source_ref_namespace: "openshift-virtualization-os-images"  # Namespace of the template
     instancetype_name: "u1.medium"  # Instance type
     preference_name: "rhel.9"  # Preference type
-    bridge_network_name: "bridge-br1"  # Name of the bridge network attachment definition
-    user_password: "pu5m-13en-ep7h"  # Cloud-init password
-    user_name: "rhel"  # Cloud-init user
+    bridge_network_name: "default/bridge-br1"  # Name of the bridge network attachment definition
+    user_password: "{{ user_password }}"  # Cloud-init password
+    user_name: "{{ user_name }}"  # Cloud-init user
   tasks:
     - name: Check if the target namespace exists
       kubernetes.core.k8s_info:
