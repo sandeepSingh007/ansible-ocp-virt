@@ -49,7 +49,7 @@
                                     "masquerade": {}
                                   },
                                   {
-                                    "name": "bridge-br1",  # Add the bridge network interface
+                                    "name": "bridge-br1",
                                     "bridge": {}
                                   }
                                 ]
