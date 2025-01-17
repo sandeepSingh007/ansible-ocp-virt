@@ -1,0 +1,58 @@
+- hosts: localhost
+  tasks:
+    - name: Ensure namespace exists
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: aap-vm-auto-provision-test
+
+    - name: Create fedora virtual machine
+      redhat.openshift_virtualization.kubevirt_vm:
+        state: present
+        name: fedora-httpd
+        namespace: aap-vm-auto-provision-test
+        labels:
+          app: httpd
+        instancetype:
+          name: u1.medium
+        preference:
+          name: fedora
+        spec:
+          domain:
+            devices:
+              interfaces:
+                - name: default
+                  masquerade: {}
+          networks:
+            - name: default
+              pod: {}
+          volumes:
+            - containerDisk:
+                image: quay.io/containerdisks/fedora:latest
+              name: containerdisk
+            - cloudInitNoCloud:
+                userData: |-
+                  #cloud-config
+                  # Set root user password
+                  users:
+                    - name: root
+                      password: $6$rounds=656000$kWo...JcRUbA4HKRkpGOq3KJwNsIhHxTczA
+                      lock_passwd: false
+                      ssh_pwauth: true
+                  chpasswd:
+                    expire: false
+                name: cloudinit
+
+    - name: Wait for virtual machine IP to be populated
+      kubernetes.core.k8s_info:
+        api_version: kubevirt.io/v1
+        kind: VirtualMachineInstance
+        name: fedora-httpd
+        namespace: aap-vm-auto-provision-test
+      register: vmi
+      retries: 60
+      delay: 10
+      until: (vmi.resources[0].status.interfaces[0]['ipAddress'] | default('')) | length > 0
