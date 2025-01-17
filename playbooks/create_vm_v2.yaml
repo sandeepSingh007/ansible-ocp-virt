@@ -33,7 +33,7 @@
               },
               "spec": {
                 "template": vm_template.resources[0],
-                "secret": null
+                "secret": ~  # Use '~' for null in YAML
               }
             }
           }}
