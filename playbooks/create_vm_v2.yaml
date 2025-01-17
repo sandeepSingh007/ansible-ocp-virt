@@ -1,15 +1,11 @@
-- hosts: "{{ host }}" ## Passing this value as well from AAP Job Template
+- hosts: "{{ host }}"  # Dynamically passed from AAP Job Template
   vars:
     vm_name: "{{ vm_name }}"  # Dynamically passed from AAP Job Template
   tasks:
-    - name: Ensure namespace exists
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: v1
-          kind: Namespace
-          metadata:
-            name: aap-vm-auto-provision-test ## This is namespace in openshift, In my case already provisioned in Openshift ###
+    - name: Fail if vm_name is not provided
+      fail:
+        msg: "The variable 'vm_name' is required to create the VM."
+      when: vm_name is not defined or vm_name | length == 0
 
     - name: Create fedora virtual machine with two network interfaces
       redhat.openshift_virtualization.kubevirt_vm:
@@ -45,10 +41,11 @@
                 networkName: bridge-br1
 
           volumes:
-            - containerDisk:
+            - name: containerdisk
+              containerDisk:
                 image: quay.io/containerdisks/fedora:latest
-              name: containerdisk
-            - cloudInitNoCloud:
+            - name: cloudinitdisk
+              cloudInitNoCloud:
                 userData: |-
                   #cloud-config
                   # Set root user password
@@ -59,7 +56,6 @@
                       ssh_pwauth: true
                   chpasswd:
                     expire: false
-                name: cloudinit
 
     - name: Wait for virtual machine to be ready and retrieve IP address
       kubernetes.core.k8s_info:
