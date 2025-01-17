@@ -1,74 +1,50 @@
-- hosts: "{{ host }}"  # Dynamically passed from AAP Job Template
+- hosts: localhost
   vars:
-    vm_name: "{{ vm_name }}"  # Dynamically passed from AAP Job Template
+    vm_name: "{{ vm_name }}"  # VM name, dynamically passed from AAP Job Template
+    template_name: "{{ catalog_name }}"  # The catalog template name
+    namespace: "openshift"  # Namespace where the catalog template is stored
+    target_namespace: "aap-vm-auto-provision-test"  # Target namespace for the VM
   tasks:
-    - name: Fail if vm_name is not provided
+    - name: Fetch the VirtualMachineTemplate
+      kubernetes.core.k8s_info:
+        api_version: kubevirt.io/v1
+        kind: VirtualMachineInstanceTemplate
+        name: "{{ template_name }}"
+        namespace: "{{ namespace }}"
+      register: vm_template
+
+    - name: Fail if template not found
       fail:
-        msg: "The variable 'vm_name' is required to create the VM."
-      when: vm_name is not defined or vm_name | length == 0
+        msg: "Template {{ template_name }} not found in namespace {{ namespace }}."
+      when: vm_template.resources | length == 0
 
-    - name: Create fedora virtual machine with two network interfaces
-      redhat.openshift_virtualization.kubevirt_vm:
+    - name: Create a VirtualMachine from the catalog template
+      kubernetes.core.k8s:
         state: present
-        name: "{{ vm_name }}"  # Use dynamic VM name
-        namespace: aap-vm-auto-provision-test
-        labels:
-          app: httpd
-        instancetype:
-          name: u1.medium
-        preference:
-          name: fedora
-        spec:
-          domain:
-            devices:
-              interfaces:
-                # Default pod network interface
-                - name: default
-                  masquerade: {}
+        definition: >
+          {{
+            vm_template.resources[0] | combine({
+              "metadata": {
+                "name": vm_name,
+                "namespace": target_namespace
+              }
+            })
+          }}
+      register: create_vm
 
-                # Second network interface using NetworkAttachmentDefinition
-         #       - name: bridge-br1
-          #        bridge: {}
-
-          networks:
-            # Pod network
-            - name: default
-              pod: {}
-
-            # Second network for bridge-br1 using NetworkAttachmentDefinition
-           # - name: bridge-br1
-            #  multus:
-             #   networkName: bridge-br1
-
-          volumes:
-            - name: containerdisk
-              containerDisk:
-                image: quay.io/containerdisks/fedora:latest
-            - name: cloudinitdisk
-              cloudInitNoCloud:
-                userData: |-
-                  #cloud-config
-                  # Set root user password
-                  users:
-                    - name: root
-                      password: $6$rounds=656000$kWo...JcRUbA4HKRkpGOq3KJwNsIhHxTczA
-                      lock_passwd: false
-                      ssh_pwauth: true
-                  chpasswd:
-                    expire: false
-
-    - name: Wait for virtual machine to be ready and retrieve IP address
+    - name: Wait for the VM to be ready
       kubernetes.core.k8s_info:
         api_version: kubevirt.io/v1
         kind: VirtualMachineInstance
-        name: "{{ vm_name }}"  # Use dynamic VM name
-        namespace: aap-vm-auto-provision-test
+        name: "{{ vm_name }}"
+        namespace: "{{ target_namespace }}"
       register: vmi
       retries: 60
       delay: 10
-      until: (vmi.resources[0].status.interfaces | length > 0) and 
-             (vmi.resources[0].status.interfaces[0]['ipAddress'] | default('')) | length > 0
+      until: >
+        (vmi.resources[0].status.phase == "Running") and
+        (vmi.resources[0].status.interfaces | default([]) | length > 0)
 
-    - name: Print IP address of the VM
+    - name: Print the IP address of the VM
       debug:
-        msg: "The IP address of the virtual machine {{ vm_name }} is: {{ vmi.resources[0].status.interfaces[0]['ipAddress'] }}"
+        msg: "The IP address of the virtual machine {{ vm_name }} is: {{ vmi.resources[0].status.interfaces[0].ipAddress }}"
