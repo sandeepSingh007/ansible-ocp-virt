@@ -4,11 +4,12 @@
     template_name: "{{ catalog_name }}"  # The catalog template name
     namespace: "openshift"  # Namespace where the catalog template is stored
     target_namespace: "aap-vm-auto-provision-test"  # Target namespace for the VM
+
   tasks:
-    - name: Fetch the VirtualMachineTemplate
+    - name: Fetch the Template
       kubernetes.core.k8s_info:
-        api_version: kubevirt.io/v1
-        kind: VirtualMachineInstanceTemplate
+        api_version: template.openshift.io/v1
+        kind: Template
         name: "{{ template_name }}"
         namespace: "{{ namespace }}"
       register: vm_template
@@ -18,17 +19,23 @@
         msg: "Template {{ template_name }} not found in namespace {{ namespace }}."
       when: vm_template.resources | length == 0
 
-    - name: Create a VirtualMachine from the catalog template
+    - name: Process the template and create a VirtualMachine
       kubernetes.core.k8s:
         state: present
         definition: >
           {{
-            vm_template.resources[0] | combine({
+            {
+              "apiVersion": "template.openshift.io/v1",
+              "kind": "TemplateInstance",
               "metadata": {
-                "name": vm_name,
-                "namespace": target_namespace
+                "name": "{{ vm_name }}",
+                "namespace": "{{ target_namespace }}"
+              },
+              "spec": {
+                "template": vm_template.resources[0],
+                "secret": null
               }
-            })
+            }
           }}
       register: create_vm
 
