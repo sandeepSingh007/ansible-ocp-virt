@@ -110,11 +110,29 @@
         (vmi.resources[0].status.interfaces[0].ipAddress | default('')) | length > 0
 
         
-    - name: Print the IP address of the VM
-      debug:
-        msg: "The IP address of the virtual machine {{ vm_name }} is: {{ vmi.resources[0].status.interfaces[0].ipAddress }}"
+    #- name: Print the IP address of the VM
+      #debug:
+        #msg: "The IP address of the virtual machine {{ vm_name }} is: {{ vmi.resources[0].status.interfaces[0].ipAddress }}"
         #msg: >
          # The IP addresses of the virtual machine {{ vm_name }} are:
           #{% for interface in vmi.resources[0].status.interfaces %}
           #- {{ interface.name }}: {{ interface.ipAddress | default('No IP assigned') }}
           #{% endfor %}
+    - name: Print the IP addresses of all VM interfaces
+      debug:
+        msg: >
+          The IP addresses of the virtual machine {{ vm_name }} are:
+          {% for interface in vmi.resources[0].status.interfaces %}
+          - {{ interface.name }}: {{ interface.ipAddress | default('No IP assigned') }}
+          {% endfor %}
+
+    - name: Gather IP addresses of all VM interfaces as a structured list
+      set_fact:
+        vm_interfaces: >
+          [{% for interface in vmi.resources[0].status.interfaces %}
+            {"name": "{{ interface.name }}", "ip": "{{ interface.ipAddress | default('No IP assigned') }}"}
+          {% endfor %}]
+
+    - name: Print all VM interfaces and their IPs (Structured Output)
+      debug:
+        var: vm_interfaces
