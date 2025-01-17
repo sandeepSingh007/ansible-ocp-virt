@@ -1,4 +1,6 @@
 - hosts: localhost
+  vars:
+    vm_name: "{{ vm_name }}"  # Dynamically passed from AAP Job Template
   tasks:
     - name: Ensure namespace exists
       kubernetes.core.k8s:
@@ -12,7 +14,7 @@
     - name: Create fedora virtual machine with two network interfaces
       redhat.openshift_virtualization.kubevirt_vm:
         state: present
-        name: fedora-httpd
+        name: "{{ vm_name }}"  # Use dynamic VM name
         namespace: aap-vm-auto-provision-test
         labels:
           app: httpd
@@ -63,7 +65,7 @@
       kubernetes.core.k8s_info:
         api_version: kubevirt.io/v1
         kind: VirtualMachineInstance
-        name: fedora-httpd
+        name: "{{ vm_name }}"  # Use dynamic VM name
         namespace: aap-vm-auto-provision-test
       register: vmi
       retries: 60
@@ -73,4 +75,4 @@
 
     - name: Print IP address of the VM
       debug:
-        msg: "The IP address of the virtual machine is: {{ vmi.resources[0].status.interfaces[0]['ipAddress'] }}"
+        msg: "The IP address of the virtual machine {{ vm_name }} is: {{ vmi.resources[0].status.interfaces[0]['ipAddress'] }}"
