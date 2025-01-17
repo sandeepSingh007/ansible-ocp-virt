@@ -1,4 +1,3 @@
-### Playbook to Create VM by Using Template from Catalog. ####
 - hosts: localhost
   vars:
     vm_name: "{{ vm_name }}"  # VM name
@@ -10,7 +9,9 @@
     bridge_network_name: "default/bridge-br1"  # Name of the bridge network attachment definition
     user_password: "{{ user_password }}"  # Cloud-init password
     user_name: "{{ user_name }}"  # Cloud-init user
+
   tasks:
+    # Validate Namespace
     - name: Check if the target namespace exists
       kubernetes.core.k8s_info:
         api_version: v1
@@ -19,7 +20,7 @@
       register: ns_info
       failed_when: ns_info.resources | length == 0
       ignore_errors: true
-    
+
     - name: Create namespace if it does not exist
       kubernetes.core.k8s:
         state: present
@@ -34,7 +35,8 @@
       fail:
         msg: "Namespace {{ vm_namespace }} could not be created and does not exist."
       when: ns_info.resources | length == 0 and (task_result.failed or task_result | default(false))
-  
+
+    # Create the Virtual Machine
     - name: Create VM using the provided template
       kubernetes.core.k8s:
         state: present
@@ -68,10 +70,10 @@
                 domain:
                   devices:
                     interfaces:
-                      - masquerade: {}
-                        name: default
-                      - bridge: {}
-                        name: bridge-br1
+                      - name: default
+                        masquerade: {}
+                      - name: bridge-br1
+                        bridge: {}
                 networks:
                   - name: default
                     pod: {}
@@ -92,6 +94,7 @@
                         user: {{ user_name }}
                     name: cloudinitdisk
 
+    # Wait for the VM to be Ready
     - name: Wait for the VM to be ready
       kubernetes.core.k8s_info:
         api_version: kubevirt.io/v1
@@ -101,31 +104,6 @@
       register: vmi
       retries: 60
       delay: 10
-     # until: (vmi.resources[0].status.interfaces[0] ['ipAddress'] | default('')) | length > 0
-      #until: (vmi.resources[0].status.phase == "Running")
-      #until: >
-        #(vmi.resources | length > 0) and
-        #(vmi.resources[0].status.phase == "Running") and
-        #(vmi.resources[0].status.interfaces | default([]) | length > 0) and
-        #(vmi.resources[0].status.interfaces | selectattr('ipAddress', 'defined') | list | length > 0)
-      until: >
-        (vmi.resources | length > 0) and
-        (vmi.resources[0].status.phase == "Running") and
-        (vmi.resources[0].status.interfaces | default([]) | length > 0) and
-        (
-          vmi.resources[0].status.interfaces | map(attribute='ipAddress') | select('defined') | list | length ==
-          (vmi.resources[0].status.interfaces | length)
-        )
-        
-       - name: Wait for all VM interfaces to have IP addresses
-      kubernetes.core.k8s_info:
-        api_version: kubevirt.io/v1
-        kind: VirtualMachineInstance
-        name: "{{ vm_name }}"
-        namespace: "{{ namespace }}"
-      register: vmi
-      retries: 100
-      delay: 10
       until: >
         (vmi.resources | length > 0) and
         (vmi.resources[0].status.phase == "Running") and
@@ -135,6 +113,7 @@
           (vmi.resources[0].status.interfaces | length)
         )
 
+    # Gather IP Addresses
     - name: Gather IP addresses of all VM interfaces as a structured list
       set_fact:
         vm_interfaces: >
@@ -142,6 +121,7 @@
             {"name": "{{ interface.name }}", "ip": "{{ interface.ipAddress | default('No IP assigned') }}"}
           {% endfor %}]
 
+    # Use the Gathered IPs
     - name: Use the gathered IPs (Example: Print only specific IPs or process further)
       debug:
         msg: >
