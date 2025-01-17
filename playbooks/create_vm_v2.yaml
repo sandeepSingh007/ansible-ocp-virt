@@ -8,126 +8,59 @@
     preference_name: "rhel.9"  # Preference type
     user_password: "pu5m-13en-ep7h"  # Cloud-init password
     user_name: "rhel"  # Cloud-init user
-
   tasks:
-    # Validate Namespace
-    - name: Check if the target namespace exists
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Namespace
-        name: "{{ namespace }}"
-      register: ns_info
-
-    - name: Fail if the target namespace does not exist
-      fail:
-        msg: "Namespace {{ namespace }} does not exist. Please create it before running this playbook."
-      when: ns_info.resources | length == 0
-
-    # Validate Template or DataSource
-    - name: Check if the template (DataSource) exists
-      kubernetes.core.k8s_info:
-        api_version: cdi.kubevirt.io/v1beta1
-        kind: DataSource
-        name: "{{ source_ref_name }}"
-        namespace: "{{ source_ref_namespace }}"
-      register: template_info
-      failed_when: template_info.resources | length == 0
-      ignore_errors: true
-
-    - name: Fail if template (DataSource) does not exist
-      fail:
-        msg: "Template (DataSource) {{ source_ref_name }} not found in namespace {{ source_ref_namespace }}."
-      when: template_info.resources | length == 0
-
-    # Create VM
     - name: Create VM using the provided template
       kubernetes.core.k8s:
         state: present
-        definition: >
-          {{
-            {
-              "apiVersion": "kubevirt.io/v1",
-              "kind": "VirtualMachine",
-              "metadata": {
-                "name": "{{ vm_name }}",
-                "namespace": "{{ namespace }}"
-              },
-              "spec": {
-                "dataVolumeTemplates": [
-                  {
-                    "metadata": {
-                      "name": "{{ vm_name }}-volume"
-                    },
-                    "spec": {
-                      "sourceRef": {
-                        "kind": "DataSource",
-                        "name": "{{ source_ref_name }}",
-                        "namespace": "{{ source_ref_namespace }}"
-                      },
-                      "storage": {
-                        "resources": {}
-                      }
-                    }
-                  }
-                ],
-                "instancetype": {
-                  "name": "{{ instancetype_name }}"
-                },
-                "preference": {
-                  "name": "{{ preference_name }}"
-                },
-                "running": true,
-                "template": {
-                  "metadata": {
-                    "labels": {
-                      "network.kubevirt.io/headlessService": "headless"
-                    }
-                  },
-                  "spec": {
-                    "domain": {
-                      "devices": {
-                        "interfaces": [
-                          {
-                            "name": "default",
-                            "masquerade": {}
-                          }
-                        ]
-                      }
-                    },
-                    "networks": [
-                      {
-                        "name": "default",
-                        "pod": {}
-                      }
-                    ],
-                    "subdomain": "headless",
-                    "volumes": [
-                      {
-                        "dataVolume": {
-                          "name": "{{ vm_name }}-volume"
-                        },
-                        "name": "rootdisk"
-                      },
-                      {
-                        "cloudInitNoCloud": {
-                          "userData": |
-                            #cloud-config
-                            chpasswd:
-                              expire: false
-                            password: {{ user_password }}
-                            user: {{ user_name }}
-                        },
-                        "name": "cloudinitdisk"
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          }}
-      register: create_vm
+        definition:
+          apiVersion: kubevirt.io/v1
+          kind: VirtualMachine
+          metadata:
+            name: "{{ vm_name }}"
+            namespace: "{{ namespace }}"
+          spec:
+            dataVolumeTemplates:
+              - metadata:
+                  name: "{{ vm_name }}-volume"
+                spec:
+                  sourceRef:
+                    kind: DataSource
+                    name: "{{ source_ref_name }}"
+                    namespace: "{{ source_ref_namespace }}"
+                  storage:
+                    resources: {}
+            instancetype:
+              name: "{{ instancetype_name }}"
+            preference:
+              name: "{{ preference_name }}"
+            running: true
+            template:
+              metadata:
+                labels:
+                  network.kubevirt.io/headlessService: headless
+              spec:
+                domain:
+                  devices:
+                    interfaces:
+                      - masquerade: {}
+                        name: default
+                networks:
+                  - name: default
+                    pod: {}
+                subdomain: headless
+                volumes:
+                  - dataVolume:
+                      name: "{{ vm_name }}-volume"
+                    name: rootdisk
+                  - cloudInitNoCloud:
+                      userData: |
+                        #cloud-config
+                        chpasswd:
+                          expire: false
+                        password: {{ user_password }}
+                        user: {{ user_name }}
+                    name: cloudinitdisk
 
-    # Wait for the VM to be ready
     - name: Wait for the VM to be ready
       kubernetes.core.k8s_info:
         api_version: kubevirt.io/v1
@@ -141,7 +74,6 @@
         (vmi.resources[0].status.phase == "Running") and
         (vmi.resources[0].status.interfaces | default([]) | length > 0)
 
-    # Output VM IP
     - name: Print the IP address of the VM
       debug:
         msg: "The IP address of the virtual machine {{ vm_name }} is: {{ vmi.resources[0].status.interfaces[0].ipAddress }}"
