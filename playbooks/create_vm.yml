@@ -1,4 +1,4 @@
-- hosts: localhost # Target all hosts in your inventory
+- hosts: localhost # Playbook run against the local host, as i am using Kubernetes virt module, no need to change if Using AAP## 
   tasks:
   #- name: Create project
    # redhat.openshift.k8s:
