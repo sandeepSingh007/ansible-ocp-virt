@@ -11,7 +11,7 @@
     user_name: "{{ user_name }}"  # Cloud-init user
 
   tasks:
-    # Validate Namespace
+    # Step 1: Validate the namespace
     - name: Check if the target namespace exists
       kubernetes.core.k8s_info:
         api_version: v1
@@ -34,9 +34,9 @@
     - name: Validate namespace creation
       fail:
         msg: "Namespace {{ vm_namespace }} could not be created and does not exist."
-      when: ns_info.resources | length == 0 and (task_result.failed or task_result | default(false))
+      when: ns_info.resources | length == 0
 
-    # Create the Virtual Machine
+    # Step 2: Create the Virtual Machine
     - name: Create VM using the provided template
       kubernetes.core.k8s:
         state: present
@@ -94,7 +94,7 @@
                         user: {{ user_name }}
                     name: cloudinitdisk
 
-    # Wait for the VM to be Ready
+    # Step 3: Wait for the VM to be ready
     - name: Wait for the VM to be ready
       kubernetes.core.k8s_info:
         api_version: kubevirt.io/v1
@@ -113,7 +113,7 @@
           (vmi.resources[0].status.interfaces | length)
         )
 
-    # Gather IP Addresses
+    # Step 4: Gather the IP addresses of all VM interfaces
     - name: Gather IP addresses of all VM interfaces as a structured list
       set_fact:
         vm_interfaces: >
@@ -121,7 +121,7 @@
             {"name": "{{ interface.name }}", "ip": "{{ interface.ipAddress | default('No IP assigned') }}"}
           {% endfor %}]
 
-    # Use the Gathered IPs
+    # Step 5: Use the gathered IPs (Example usage)
     - name: Use the gathered IPs (Example: Print only specific IPs or process further)
       debug:
         msg: >
