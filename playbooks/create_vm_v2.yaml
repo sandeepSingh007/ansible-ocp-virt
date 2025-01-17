@@ -4,6 +4,7 @@
     template_name: "{{ catalog_name }}"  # The catalog template name
     namespace: "openshift"  # Namespace where the catalog template is stored
     target_namespace: "aap-vm-auto-provision-test"  # Target namespace for the VM
+    bridge_network_name: "bridge-br1"  # Name of the NetworkAttachmentDefinition for the bridge network
 
   tasks:
     - name: Fetch the Template
@@ -19,7 +20,7 @@
         msg: "Template {{ template_name }} not found in namespace {{ namespace }}."
       when: vm_template.resources | length == 0
 
-    - name: Process the template and create a VirtualMachine
+    - name: Process the template and customize VM configuration
       kubernetes.core.k8s:
         state: present
         definition: >
@@ -32,8 +33,62 @@
                 "namespace": "{{ target_namespace }}"
               },
               "spec": {
-                "template": vm_template.resources[0],
-                "secret": ~  # Use '~' for null in YAML
+                "template": vm_template.resources[0] | combine({
+                  "objects": [
+                    {
+                      "kind": "VirtualMachine",
+                      "apiVersion": "kubevirt.io/v1",
+                      "spec": {
+                        "template": {
+                          "spec": {
+                            "domain": {
+                              "devices": {
+                                "interfaces": [
+                                  {
+                                    "name": "default",
+                                    "masquerade": {}
+                                  },
+                                  {
+                                    "name": "bridge-br1",  # Add the bridge network interface
+                                    "bridge": {}
+                                  }
+                                ]
+                              }
+                            },
+                            "networks": [
+                              {
+                                "name": "default",
+                                "pod": {}
+                              },
+                              {
+                                "name": "bridge-br1",
+                                "multus": {
+                                  "networkName": "{{ bridge_network_name }}"
+                                }
+                              }
+                            ],
+                            "volumes": [
+                              {
+                                "name": "cloudinitdisk",
+                                "cloudInitNoCloud": {
+                                  "userData": |-
+                                    #cloud-config
+                                    users:
+                                      - name: root
+                                        passwd: redhat@123
+                                        lock_passwd: false
+                                        ssh_pwauth: true
+                                    chpasswd:
+                                      expire: false
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                })
               }
             }
           }}
