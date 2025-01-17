@@ -1,4 +1,4 @@
-- hosts: localhost
+- hosts: "{{ host }}" ## Passing this value as well from AAP Job Template
   vars:
     vm_name: "{{ vm_name }}"  # Dynamically passed from AAP Job Template
   tasks:
