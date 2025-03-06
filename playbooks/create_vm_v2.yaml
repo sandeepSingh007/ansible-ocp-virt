@@ -70,7 +70,7 @@
                     interfaces:
                       - bridge: {}
                         name: bridge-br1
-                        - masquerade: {}
+                      - masquerade: {}
                         name: default
                 networks:
                   - name: bridge-br1
