@@ -1,4 +1,4 @@
-- hosts: "{{ host }}"
+- hosts: "{{ ansible_host }}"
   become: true  # Run tasks with root privileges
   vars:
     ansible_user: "{{ user_name }}"        # Replace with your SSH username
