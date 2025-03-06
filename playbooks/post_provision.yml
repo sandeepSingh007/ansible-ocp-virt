@@ -1,5 +1,10 @@
 - hosts: "{{ host }}"
   become: true  # Run tasks with root privileges
+  vars:
+    ansible_user: "{{ user_name }}"        # Replace with your SSH username
+    ansible_ssh_pass: "{{ pass_word }}"    # Replace with your SSH password
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+    
   tasks:
     - name: Install httpd package
       ansible.builtin.package:
