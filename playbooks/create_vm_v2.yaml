@@ -68,16 +68,16 @@
                 domain:
                   devices:
                     interfaces:
-                      - masquerade: {}
-                        name: default
                       - bridge: {}
                         name: bridge-br1
+                        - masquerade: {}
+                        name: default
                 networks:
-                  - name: default
-                    pod: {}
                   - name: bridge-br1
                     multus:
                       networkName: "{{ bridge_network_name }}"
+                  - name: default
+                    pod: {}
                 subdomain: headless
                 volumes:
                   - dataVolume:
