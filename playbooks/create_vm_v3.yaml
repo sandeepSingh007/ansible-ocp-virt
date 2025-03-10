@@ -10,6 +10,7 @@
     bridge_network_name: "default/bridge-br1"  # Name of the bridge network attachment definition
     user_password: "{{ user_password }}"  # Cloud-init password
     user_name: "{{ user_name }}"  # Cloud-init user
+
   tasks:
     - name: Check if the target namespace exists
       kubernetes.core.k8s_info:
@@ -19,7 +20,7 @@
       register: ns_info
       failed_when: ns_info.resources | length == 0
       ignore_errors: true
-    
+
     - name: Create namespace if it does not exist
       kubernetes.core.k8s:
         state: present
@@ -34,7 +35,7 @@
       fail:
         msg: "Namespace {{ vm_namespace }} could not be created and does not exist."
       when: ns_info.resources | length == 0 and (task_result.failed or task_result | default(false))
-  
+
     - name: Create VM using the provided template
       kubernetes.core.k8s:
         state: present
@@ -90,14 +91,15 @@
                           expire: false
                         password: {{ user_password }}
                         user: {{ user_name }}
-                      runcmd:
-                        - sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config  # Update main SSH config if present
-                        - for file in /etc/ssh/sshd_config.d/*; do
-                            if grep -q "^PasswordAuthentication no" "$file"; then
-                              sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' "$file";
-                            fi;
-                          done
-                        - systemctl restart sshd  # Restart SSH service to apply changes 
+                        ssh_pwauth: true  # Enable SSH password authentication
+                        runcmd:
+                          - sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+                          - for file in /etc/ssh/sshd_config.d/*; do
+                              if grep -q "^PasswordAuthentication no" "$file"; then
+                                sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' "$file";
+                              fi;
+                            done
+                          - systemctl restart sshd  # Restart SSH service to apply changes
                     name: cloudinitdisk
 
     - name: Wait for the VM to be ready
@@ -117,14 +119,14 @@
           vmi.resources[0].status.interfaces | map(attribute='ipAddress') | select('defined') | list | length ==
           (vmi.resources[0].status.interfaces | length)
         )
-        
+
     - name: Gather IP addresses of all VM interfaces as a structured list
       set_fact:
         vm_interfaces: >
           [{% for interface in vmi.resources[0].status.interfaces %}
             {"name": "{{ interface.name }}", "ip": "{{ interface.ipAddress | default('No IP assigned') }}"}
           {% endfor %}]
-          
+
     - name: Print the IP addresses of all VM interfaces
       debug:
         msg: >
