@@ -1,0 +1,134 @@
+### Playbook to Create VM by Using Template from Catalog. ####
+- hosts: localhost
+  vars:
+    vm_name: "{{ vm_name }}"  # VM name
+    vm_namespace: "aap-vm-auto-provision-test"  # Target namespace
+    source_ref_name: "rhel9"  # Template or image source name
+    source_ref_namespace: "openshift-virtualization-os-images"  # Namespace of the template
+    instancetype_name: "u1.medium"  # Instance type
+    preference_name: "rhel.9"  # Preference type
+    bridge_network_name: "default/bridge-br1"  # Name of the bridge network attachment definition
+    user_password: "{{ user_password }}"  # Cloud-init password
+    user_name: "{{ user_name }}"  # Cloud-init user
+  tasks:
+    - name: Check if the target namespace exists
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+        name: "{{ vm_namespace }}"
+      register: ns_info
+      failed_when: ns_info.resources | length == 0
+      ignore_errors: true
+    
+    - name: Create namespace if it does not exist
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ vm_namespace }}"
+      when: ns_info.resources | length == 0
+
+    - name: Validate namespace creation
+      fail:
+        msg: "Namespace {{ vm_namespace }} could not be created and does not exist."
+      when: ns_info.resources | length == 0 and (task_result.failed or task_result | default(false))
+  
+    - name: Create VM using the provided template
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: kubevirt.io/v1
+          kind: VirtualMachine
+          metadata:
+            name: "{{ vm_name }}"
+            namespace: "{{ vm_namespace }}"
+          spec:
+            dataVolumeTemplates:
+              - metadata:
+                  name: "{{ vm_name }}-volume"
+                spec:
+                  sourceRef:
+                    kind: DataSource
+                    name: "{{ source_ref_name }}"
+                    namespace: "{{ source_ref_namespace }}"
+                  storage:
+                    resources: {}
+            instancetype:
+              name: "{{ instancetype_name }}"
+            preference:
+              name: "{{ preference_name }}"
+            running: true
+            template:
+              metadata:
+                labels:
+                  network.kubevirt.io/headlessService: headless
+              spec:
+                domain:
+                  devices:
+                    interfaces:
+                      - bridge: {}
+                        name: bridge-br1
+                      - masquerade: {}
+                        name: default
+                networks:
+                  - name: bridge-br1
+                    multus:
+                      networkName: "{{ bridge_network_name }}"
+                  - name: default
+                    pod: {}
+                subdomain: headless
+                volumes:
+                  - dataVolume:
+                      name: "{{ vm_name }}-volume"
+                    name: rootdisk
+                  - cloudInitNoCloud:
+                      userData: |
+                        #cloud-config
+                        chpasswd:
+                          expire: false
+                        password: {{ user_password }}
+                        user: {{ user_name }}
+                      runcmd:
+                        - sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config  # Update main SSH config if present
+                        - for file in /etc/ssh/sshd_config.d/*; do
+                            if grep -q "^PasswordAuthentication no" "$file"; then
+                              sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' "$file";
+                            fi;
+                          done
+                        - systemctl restart sshd  # Restart SSH service to apply changes 
+                    name: cloudinitdisk
+
+    - name: Wait for the VM to be ready
+      kubernetes.core.k8s_info:
+        api_version: kubevirt.io/v1
+        kind: VirtualMachineInstance
+        name: "{{ vm_name }}"
+        namespace: "{{ vm_namespace }}"
+      register: vmi
+      retries: 60
+      delay: 10
+      until: >
+        (vmi.resources | length > 0) and
+        (vmi.resources[0].status.phase == "Running") and
+        (vmi.resources[0].status.interfaces | default([]) | length > 0) and
+        (
+          vmi.resources[0].status.interfaces | map(attribute='ipAddress') | select('defined') | list | length ==
+          (vmi.resources[0].status.interfaces | length)
+        )
+        
+    - name: Gather IP addresses of all VM interfaces as a structured list
+      set_fact:
+        vm_interfaces: >
+          [{% for interface in vmi.resources[0].status.interfaces %}
+            {"name": "{{ interface.name }}", "ip": "{{ interface.ipAddress | default('No IP assigned') }}"}
+          {% endfor %}]
+          
+    - name: Print the IP addresses of all VM interfaces
+      debug:
+        msg: >
+          The IP addresses of the virtual machine {{ vm_name }} are:
+          {% for interface in (vmi.resources[0].status.interfaces | default([])) %}
+          - {{ interface.name | default('Unknown') }}: {{ interface.ipAddress | default('No IP assigned') }}
+          {% endfor %}
